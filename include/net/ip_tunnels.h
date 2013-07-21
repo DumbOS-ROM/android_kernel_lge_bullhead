@@ -220,6 +220,25 @@ static inline u8 ip_tunnel_ecn_encap(u8 tos, const struct iphdr *iph,
 	return INET_ECN_encapsulate(tos, inner);
 }
 
+static inline void iptunnel_xmit_stats(int err,
+				       struct net_device_stats *err_stats,
+				       struct pcpu_tstats __percpu *stats)
+{
+	if (err > 0) {
+		struct pcpu_tstats *tstats = this_cpu_ptr(stats);
+
+		u64_stats_update_begin(&tstats->syncp);
+		tstats->tx_bytes += err;
+		tstats->tx_packets++;
+		u64_stats_update_end(&tstats->syncp);
+	} else if (err < 0) {
+		err_stats->tx_errors++;
+		err_stats->tx_aborted_errors++;
+	} else {
+		err_stats->tx_dropped++;
+	}
+}
+
 static inline void iptunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	int err;
