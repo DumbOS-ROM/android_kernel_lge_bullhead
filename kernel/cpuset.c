@@ -288,8 +288,15 @@ static struct dentry *cpuset_mount(struct file_system_type *fs_type,
 		char mountopts[] =
 			"cpuset,noprefix,"
 			"release_agent=/sbin/cpuset_release_agent";
+		char v2_mountopts[] =
+			"cpuset,noprefix,cpuset_v2_mode,"
+			"release_agent=/sbin/cpuset_release_agent";
+		char *opts = mountopts;
+
+		if (data && !strcmp(data, "cpuset_v2_mode"))
+			opts = v2_mountopts;
 		ret = cgroup_fs->mount(cgroup_fs, flags,
-					   unused_dev_name, mountopts);
+					   unused_dev_name, opts);
 		put_filesystem(cgroup_fs);
 	}
 	return ret;
