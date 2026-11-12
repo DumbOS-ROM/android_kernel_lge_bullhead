@@ -657,6 +657,7 @@ extern struct kmem_cache *skbuff_head_cache;
 extern void kfree_skb_partial(struct sk_buff *skb, bool head_stolen);
 extern bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
 			     bool *fragstolen, int *delta_truesize);
+extern void skb_scrub_packet(struct sk_buff *skb, bool xnet);
 
 extern struct sk_buff *__alloc_skb(unsigned int size,
 				   gfp_t priority, int flags, int node);
