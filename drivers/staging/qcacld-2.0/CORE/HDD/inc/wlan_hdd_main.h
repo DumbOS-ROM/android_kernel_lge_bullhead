@@ -209,6 +209,8 @@
 #define WLAN_HDD_QOS_ACTION_FRAME 1
 #define WLAN_HDD_QOS_MAP_CONFIGURE 4
 #define HDD_SAP_WAKE_LOCK_DURATION 10000 //in msecs
+/* in msecs, after SoftAP unicast traffic */
+#define HDD_SAP_TRAFFIC_WAKE_LOCK_DURATION 1000
 
 #if defined(CONFIG_HL_SUPPORT)
 #define HDD_MOD_EXIT_SSR_MAX_RETRIES 200
@@ -1532,6 +1534,8 @@ struct hdd_context_s
    u_int8_t hdd_restart_retries;
 
    vos_wake_lock_t sap_wake_lock;
+   vos_wake_lock_t sap_traffic_wake_lock;
+   unsigned long sap_traffic_wake_next;
 
 #ifdef FEATURE_WLAN_TDLS
     eTDLSSupportMode tdls_mode;

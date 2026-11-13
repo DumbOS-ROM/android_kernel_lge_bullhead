@@ -215,6 +215,23 @@ void hdd_softap_tx_resume_cb(void *adapter_context,
 }
 #endif /* QCA_LL_TX_FLOW_CT */
 
+static unsigned int sap_traffic_wakelock_ms =
+	HDD_SAP_TRAFFIC_WAKE_LOCK_DURATION;
+module_param(sap_traffic_wakelock_ms, uint, 0644);
+
+/* Refreshed at most every quarter of the hold time to keep it cheap */
+static void hdd_softap_traffic_wake(hdd_context_t *hdd_ctx)
+{
+	unsigned int ms = ACCESS_ONCE(sap_traffic_wakelock_ms);
+	unsigned long now = jiffies;
+
+	if (!ms || time_before(now, hdd_ctx->sap_traffic_wake_next))
+		return;
+	hdd_ctx->sap_traffic_wake_next = now + msecs_to_jiffies(ms / 4);
+	vos_wake_lock_timeout_acquire(&hdd_ctx->sap_traffic_wake_lock, ms,
+				      WIFI_POWER_EVENT_WAKELOCK_HOLD_RX);
+}
+
 /**============================================================================
   @brief hdd_softap_hard_start_xmit() - Function registered with the Linux OS
                                         for transmitting packets.
@@ -235,6 +252,7 @@ int __hdd_softap_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
    struct sk_buff *skb_next, *list_head = NULL, *list_tail = NULL;
    void *vdev_handle = NULL, *vdev_temp;
    bool is_update_ac_stats = FALSE;
+   bool unicast = false;
 #ifdef QCA_PKT_PROTO_TRACE
    hdd_context_t *hddCtxt = (hdd_context_t *)pAdapter->pHddCtx;
    v_U8_t proto_type = 0;
@@ -315,6 +333,7 @@ int __hdd_softap_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
                    goto drop_pkt;
                }
            }
+           unicast = true;
        }
 
        vdev_temp = tlshim_peer_validity(
@@ -437,6 +456,8 @@ drop_pkt:
    }
 
    dev->trans_start = jiffies;
+   if (unicast)
+       hdd_softap_traffic_wake(pHddCtx);
    return NETDEV_TX_OK;
 
 drop_list:
@@ -871,6 +892,9 @@ VOS_STATUS hdd_softap_rx_packet_cbk(v_VOID_t *vosContext,
 	    vos_wake_lock_timeout_acquire(&pHddCtx->rx_wake_lock,
                         pHddCtx->cfg_ini->rx_wakelock_timeout,
                         WIFI_POWER_EVENT_WAKELOCK_HOLD_RX);
+         if ((PACKET_BROADCAST != skb->pkt_type) &&
+             (PACKET_MULTICAST != skb->pkt_type))
+            hdd_softap_traffic_wake(pHddCtx);
          /*
           * This is the last packet on the chain
           * Scheduling rx sirq
